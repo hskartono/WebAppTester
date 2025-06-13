@@ -1,0 +1,86 @@
+# Sample Web API Test Configuration
+# This file defines tests for a web API and database queries
+
+# Base URL for all API requests
+baseUrl: https://api.example.com
+
+# Database connection string
+connectionString: Server=localhost;Database=TestDB;Trusted_Connection=True;
+
+# Test steps to execute
+steps:
+  - name: Get User Information
+    description: Retrieves user information from the API
+    apiRequest:
+      method: GET
+      endpoint: /api/users/1
+      headers:
+        Accept: application/json
+        Authorization: Bearer token123
+      assertions:
+        - type: equals
+          propertyPath: $.id
+          expectedValue: 1
+        - type: equals
+          propertyPath: $.name
+          expectedValue: John Doe
+        - type: contains
+          propertyPath: $.email
+          expectedValue: example.com
+
+  - name: Create New User
+    description: Creates a new user via POST request
+    apiRequest:
+      method: POST
+      endpoint: /api/users
+      headers:
+        Content-Type: application/json
+        Authorization: Bearer token123
+      body:
+        name: Jane Smith
+        email: jane.smith@example.com
+        role: admin
+      assertions:
+        - type: equals
+          propertyPath: $.success
+          expectedValue: true
+        - type: notEmpty
+          propertyPath: $.id
+
+  - name: Update User
+    description: Updates an existing user via PUT request
+    apiRequest:
+      method: PUT
+      endpoint: /api/users/2
+      headers:
+        Content-Type: application/json
+        Authorization: Bearer token123
+      body:
+        name: Jane Smith Updated
+        email: jane.updated@example.com
+      assertions:
+        - type: equals
+          propertyPath: $.success
+          expectedValue: true
+
+  - name: Verify User Count in Database
+    description: Verifies the total number of users in the database
+    databaseAction:
+      query: SELECT COUNT(*) AS UserCount FROM Users
+      assertions:
+        - type: greaterThan
+          column: UserCount
+          expectedValue: 5
+
+  - name: Verify User Details in Database
+    description: Checks if user data was correctly stored in the database
+    databaseAction:
+      query: SELECT * FROM Users WHERE Email = @Email
+      parameters:
+        "@Email": jane.updated@example.com
+      assertions:
+        - type: equals
+          column: Name
+          expectedValue: Jane Smith Updated
+        - type: notEmpty
+          column: CreatedDate

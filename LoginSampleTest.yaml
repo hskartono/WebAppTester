@@ -1,0 +1,117 @@
+# Sample Web API Test Configuration with Authentication
+# This file demonstrates authentication and token reuse
+
+# Base URL for all API requests
+baseUrl: https://api.example.com
+
+# Database connection string
+connectionString: Server=localhost;Database=TestDB;Trusted_Connection=True;
+
+# Test steps to execute
+steps:
+  - name: Login to API
+    description: Authenticates with the API and obtains a token
+    apiRequest:
+      method: POST
+      endpoint: /api/auth/login
+      headers:
+        Content-Type: application/json
+      body:
+        username: admin
+        password: password123
+      assertions:
+        - type: equals
+          propertyPath: $.success
+          expectedValue: true
+        - type: notEmpty
+          propertyPath: $.data.token
+        - type: notEmpty
+          propertyPath: $.data.userId
+    authentication:
+      tokenPath: $.data.token
+      variableName: bearerToken
+      tokenType: Bearer
+
+  # Extract user ID from the login response for later use
+  - name: Extract User ID
+    description: Extract the user ID from login response for use in later steps
+    apiRequest:
+      method: GET
+      endpoint: /api/auth/profile
+      useAuthentication: true
+      assertions:
+        - type: equals
+          propertyPath: $.success
+          expectedValue: true
+    authentication:
+      tokenPath: $.data.userId
+      variableName: userId
+      tokenType: ""
+  - name: Get User Profile (Authenticated)
+    description: Retrieves user profile using the authenticated token
+    apiRequest:
+      method: GET
+      endpoint: /api/users/profile
+      headers:
+        Accept: application/json
+      useAuthentication: true
+      assertions:
+        - type: equals
+          propertyPath: $.id
+          expectedValue: 1
+        - type: equals
+          propertyPath: $.role
+          expectedValue: admin
+
+  - name: Create New Item (Using Auth Token and User ID)
+    description: Creates a new item using the authenticated token and extracted user ID
+    apiRequest:
+      method: POST
+      endpoint: /api/items
+      headers:
+        Content-Type: application/json
+      useAuthentication: true
+      body:
+        name: Test Item
+        description: Created with authenticated token
+        price: 19.99
+        createdBy: ${userId}
+      assertions:
+        - type: equals
+          propertyPath: $.success
+          expectedValue: true
+        - type: notEmpty
+          propertyPath: $.data.id
+  - name: Verify Item in Database
+    description: Verifies the new item was saved in the database
+    databaseAction:
+      query: SELECT * FROM Items WHERE Name = @Name AND CreatedBy = @UserId
+      parameters:
+        "@Name": Test Item
+        "@UserId": ${userId}
+      assertions:
+        - type: equals
+          column: Description
+          expectedValue: Created with authenticated token
+        - type: greaterThan
+          column: Price
+          expectedValue: 10
+          
+  - name: Update Item (Using Variables)
+    description: Updates the item with user info in the description
+    apiRequest:
+      method: PATCH
+      endpoint: /api/items/${itemId}
+      headers:
+        Content-Type: application/json
+      useAuthentication: true
+      body:
+        description: "Modified by user with ID: ${userId}"
+      assertions:
+        - type: equals
+          propertyPath: $.success
+          expectedValue: true
+    authentication:
+      tokenPath: $.data.item.id
+      variableName: itemId
+      tokenType: ""
